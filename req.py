@@ -1,184 +1,205 @@
+# [file name]: test_sender_optimized.py
 import requests
 import time
 import random
 import json
 import threading
 from datetime import datetime
+from queue import Queue
+from collections import defaultdict
 
-SERVER_URL = 'http://localhost:5000/api/sendString'
-USER_IDS = ['user1', 'user2', 'user3']  # Несколько пользователей
+# Конфигурация
+SERVER_URL = 'https://neurostatgames.onrender.com/api/sendString'
+USER_IDS = ['user1', 'user2', 'user3']
 
-# Статистика для отслеживания скорости отправки
+# Настройки
+TIMEOUT = 2.0  # Увеличенный таймаут
+MAX_RETRIES = 3  # Максимальное количество повторных попыток
+RETRY_DELAY = 0.1  # Задержка между повторами
+BATCH_SIZE = 5  # Отправка пачками
+
+# Статистика
 stats = {
     'sent': 0,
     'errors': 0,
-    'start_time': time.time()
+    'retries': 0,
+    'start_time': time.time(),
+    'by_user': defaultdict(int),
+    'by_type': defaultdict(int)
 }
+
+# Очередь для отложенной отправки при ошибках
+retry_queue = Queue()
+print_lock = threading.Lock()
+
+
+def safe_print(*args, **kwargs):
+    with print_lock:
+        print(*args, **kwargs)
 
 
 def print_stats():
-    """Вывод статистики отправки"""
     elapsed = time.time() - stats['start_time']
     rate = stats['sent'] / elapsed if elapsed > 0 else 0
-    print(
-        f"\n📊 Статистика: Всего отправлено: {stats['sent']}, Ошибок: {stats['errors']}, Средняя скорость: {rate:.1f} сообщений/сек")
+    success_rate = (stats['sent'] / (stats['sent'] + stats['errors'])) * 100 if stats['sent'] + stats[
+        'errors'] > 0 else 0
+
+    safe_print(f"\n{'=' * 60}")
+    safe_print(f"📊 СТАТИСТИКА ЗА {elapsed:.1f} сек:")
+    safe_print(f"   ✅ Успешно: {stats['sent']}")
+    safe_print(f"   ❌ Ошибок: {stats['errors']}")
+    safe_print(f"   🔄 Повторов: {stats['retries']}")
+    safe_print(f"   📈 Скорость: {rate:.1f} сообщений/сек")
+    safe_print(f"   🎯 Успешность: {success_rate:.1f}%")
+    safe_print(f"\n   По пользователям:")
+    for user, count in stats['by_user'].items():
+        safe_print(f"     • {user}: {count}")
+    safe_print(f"{'=' * 60}")
 
 
-def send_data(user_id, key, value):
+def send_with_retry(user_id, key, value, retry_count=0):
+    """Отправка с повторными попытками при таймауте"""
     payload = {
         'id': user_id,
         'text': f"{key} {value:.2f}"
     }
+
     try:
-        response = requests.post(SERVER_URL, json=payload, headers={'Content-Type': 'application/json'}, timeout=0.5)
+        response = requests.post(
+            SERVER_URL,
+            json=payload,
+            headers={'Content-Type': 'application/json'},
+            timeout=TIMEOUT
+        )
+
         if response.status_code == 200:
             stats['sent'] += 1
-            if stats['sent'] % 10 == 0:  # Печатаем каждые 10 сообщений
-                print(f"✅ [{user_id}] {key}: {value:.2f} (всего: {stats['sent']})")
+            stats['by_user'][user_id] += 1
+            stats['by_type'][key] += 1
+            return True
         else:
             stats['errors'] += 1
-            print(f"❌ [{user_id}] Ошибка: {response.text}")
+            safe_print(f"❌ [{user_id}] Ошибка {response.status_code}: {response.text[:100]}")
+            return False
+
+    except requests.exceptions.Timeout:
+        if retry_count < MAX_RETRIES:
+            stats['retries'] += 1
+            time.sleep(RETRY_DELAY * (retry_count + 1))  # Экспоненциальная задержка
+            return send_with_retry(user_id, key, value, retry_count + 1)
+        else:
+            stats['errors'] += 1
+            safe_print(f"⏰ [{user_id}] Таймаут после {MAX_RETRIES} попыток")
+            return False
+
+    except requests.exceptions.ConnectionError:
+        stats['errors'] += 1
+        safe_print(f"🔌 [{user_id}] Ошибка соединения")
+        return False
+
     except Exception as e:
         stats['errors'] += 1
-        print(f"❌ [{user_id}] Исключение: {e}")
+        safe_print(f"❌ [{user_id}] Исключение: {type(e).__name__}")
+        return False
 
 
-def simulate_user_high_frequency(user_id):
-    """Симуляция пользователя с высокой частотой отправки"""
-    print(f"🚀 Запуск пользователя {user_id}")
-
-    # Отправляем baseline
-    baseline = random.uniform(80, 120)
-    send_data(user_id, "concentrationBaseline", baseline)
-    send_data(user_id, "stressBaseline", baseline)
-    time.sleep(0.1)
-
-    # Отправляем данные с высокой частотой
-    message_count = 0
-    target_rate = 10  # Целевая скорость 10 сообщений в секунду
-    interval = 1.0 / target_rate  # 0.1 секунды между сообщениями
-
-    while message_count < 100:  # Отправляем 100 сообщений для теста
-        start_cycle = time.time()
-
-        # Отправляем все три типа сообщений последовательно
-        concentration = random.uniform(20, 150)
-        stress = random.uniform(20, 150)
-        relax = random.uniform(0, 100)
-
-        send_data(user_id, "concentration", concentration)
-        send_data(user_id, "stress", stress)
-        send_data(user_id, "relax", relax)
-
-        message_count += 3
-
-        # Вычисляем время ожидания для поддержания нужной частоты
-        elapsed = time.time() - start_cycle
-        sleep_time = max(0, interval - elapsed)
-
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-
-        if message_count % 30 == 0:  # Печатаем каждые 30 сообщений
-            print(f"📊 [{user_id}] Отправлено {message_count} сообщений")
+def send_batch(user_id, messages):
+    """Отправка пачки сообщений"""
+    for key, value in messages:
+        send_with_retry(user_id, key, value)
+        time.sleep(0.05)  # Небольшая задержка между сообщениями в пачке
 
 
-def simulate_user_continuous(user_id):
-    """Непрерывная симуляция с высокой частотой"""
-    print(f"🚀 Запуск непрерывной симуляции для {user_id}")
+def simulate_user_optimized(user_id):
+    """Оптимизированная симуляция пользователя"""
+    safe_print(f"🚀 Запуск пользователя {user_id}")
 
     # Отправляем baseline
     baseline = random.uniform(80, 120)
-    send_data(user_id, "concentrationBaseline", baseline)
-    send_data(user_id, "stressBaseline", baseline)
-    time.sleep(0.1)
+    send_with_retry(user_id, "concentrationBaseline", baseline)
+    time.sleep(0.2)
+    send_with_retry(user_id, "stressBaseline", baseline)
+    time.sleep(0.5)
 
     message_count = 0
-    target_rate = 10  # 10 сообщений в секунду
-    interval = 1.0 / target_rate  # 0.1 секунды
+    target_rate = 5  # Уменьшенная скорость для надежности
+    interval = 1.0 / target_rate
 
     while True:
         start_cycle = time.time()
 
-        # Отправляем все три типа
-        concentration = random.uniform(20, 150)
-        stress = random.uniform(20, 150)
-        relax = random.uniform(0, 100)
+        # Формируем пачку сообщений
+        batch = []
 
-        send_data(user_id, "concentration", concentration)
-        send_data(user_id, "stress", stress)
-        send_data(user_id, "relax", relax)
+        # Концентрация (изменяется плавно)
+        concentration = 50 + 30 * math.sin(message_count * 0.1) + random.uniform(-5, 5)
+        batch.append(("concentration", concentration))
 
-        message_count += 3
+        # Стресс (обратно пропорционален relax)
+        stress = random.uniform(30, 70)
+        batch.append(("stress", stress))
 
-        # Поддерживаем нужную частоту
+        # Relax (плавные изменения)
+        relax = 50 + 20 * math.cos(message_count * 0.15) + random.uniform(-3, 3)
+        batch.append(("relax", relax))
+
+        # Отправляем пачку
+        send_batch(user_id, batch)
+        message_count += len(batch)
+
+        # Контроль скорости
         elapsed = time.time() - start_cycle
         sleep_time = max(0, interval - elapsed)
-
         if sleep_time > 0:
             time.sleep(sleep_time)
 
-        if message_count % 30 == 0:
+        # Статистика каждые 50 сообщений
+        if message_count % 50 == 0:
             rate = message_count / (time.time() - stats['start_time'])
-            print(f"📊 [{user_id}] Отправлено {message_count} сообщений, текущая скорость: {rate:.1f}/сек")
+            safe_print(f"📊 [{user_id}] Отправлено {message_count} сообщений, скорость: {rate:.1f}/сек")
 
 
-def simulate_user_burst(user_id):
-    """Отправка пачками для тестирования батчинга"""
-    print(f"🚀 Запуск burst режима для {user_id}")
-
-    # Отправляем baseline
-    baseline = random.uniform(80, 120)
-    send_data(user_id, "concentrationBaseline", baseline)
-    send_data(user_id, "stressBaseline", baseline)
-    time.sleep(0.1)
-
+def retry_processor():
+    """Обработчик очереди повторных отправок"""
     while True:
-        # Отправляем пачку из 30 сообщений быстро
-        for i in range(10):  # 10 итераций * 3 сообщения = 30 сообщений
-            concentration = random.uniform(20, 150)
-            stress = random.uniform(20, 150)
-            relax = random.uniform(0, 100)
-
-            send_data(user_id, "concentration", concentration)
-            send_data(user_id, "stress", stress)
-            send_data(user_id, "relax", relax)
-
-            # Минимальная задержка между сообщениями в пачке
-            time.sleep(0.01)  # 10ms между сообщениями внутри пачки
-
-        print(f"📊 [{user_id}] Отправлена пачка из 30 сообщений")
-
-        # Пауза между пачками
-        time.sleep(1.0)
+        try:
+            if not retry_queue.empty():
+                user_id, key, value, retry_count = retry_queue.get(timeout=1)
+                if send_with_retry(user_id, key, value, retry_count + 1):
+                    safe_print(f"🔄 Повторная отправка успешна: {user_id} {key}")
+                else:
+                    if retry_count < MAX_RETRIES:
+                        retry_queue.put((user_id, key, value, retry_count + 1))
+            time.sleep(0.1)
+        except Exception as e:
+            time.sleep(0.1)
 
 
 if __name__ == '__main__':
-    print("🚀 Запуск тестовых пользователей с высокой частотой...")
+    import math  # Добавляем для плавных изменений
+
+    print("🚀 Запуск оптимизированного тестирования...")
+    print(f"📡 Сервер: {SERVER_URL}")
+    print(f"⏱️ Таймаут: {TIMEOUT}с, Повторов: {MAX_RETRIES}")
     print("Нажмите Ctrl+C для остановки\n")
 
+    # Запускаем обработчик повторных отправок
+    retry_thread = threading.Thread(target=retry_processor, daemon=True)
+    retry_thread.start()
+
+    # Запускаем пользователей
     threads = []
-
-    # Выберите один из режимов:
-    MODE = "continuous"  # "high_frequency", "continuous", "burst"
-
     for user_id in USER_IDS:
-        if MODE == "high_frequency":
-            t = threading.Thread(target=simulate_user_high_frequency, args=(user_id,))
-        elif MODE == "continuous":
-            t = threading.Thread(target=simulate_user_continuous, args=(user_id,))
-        elif MODE == "burst":
-            t = threading.Thread(target=simulate_user_burst, args=(user_id,))
-
+        t = threading.Thread(target=simulate_user_optimized, args=(user_id,))
         t.daemon = True
         t.start()
         threads.append(t)
 
 
-    # Запускаем поток для вывода статистики
+    # Статистика
     def stats_printer():
         while True:
-            time.sleep(5)
+            time.sleep(10)
             print_stats()
 
 
