@@ -1,4 +1,7 @@
-# [file name]: app.py
+import eventlet
+eventlet.monkey_patch()  # This must come before ANY other imports
+
+# Now import everything else
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -9,7 +12,7 @@ from collections import defaultdict, deque
 import threading
 from queue import Queue, Empty
 import logging
-import os  # Добавлено для получения PORT из окружения
+import os  # Added for PORT from environment
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -19,8 +22,8 @@ app = Flask(__name__)
 CORS(app)
 
 # Важно: для продакшена используем eventlet
-socketio = SocketIO(app, 
-                   cors_allowed_origins="*", 
+socketio = SocketIO(app,
+                   cors_allowed_origins="*",
                    async_mode='eventlet',  # Явно указываем eventlet
                    logger=True,
                    engineio_logger=True)
@@ -204,12 +207,12 @@ if __name__ == '__main__':
     # Для локальной разработки
     port = int(os.environ.get('PORT', 5000))
     logger.info(f"Server starting on port {port}")
-    socketio.run(app, 
-                host='0.0.0.0', 
-                port=port, 
+    socketio.run(app,
+                host='0.0.0.0',
+                port=port,
                 debug=False,
                 allow_unsafe_werkzeug=True)  # Добавлено для локальной разработки
 else:
     # Для продакшена (когда запускается через gunicorn)
     # Создаем объект приложения для gunicorn
-    application = app
+    application = appm flask_socketio import SocketIO, emit
