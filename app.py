@@ -215,4 +215,4 @@ if __name__ == '__main__':
 else:
     # Для продакшена (когда запускается через gunicorn)
     # Создаем объект приложения для gunicorn
-    application = appm flask_socketio import SocketIO, emit
+    application = app  # This should be just "application = app"
