@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>НейроСтатN</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            min-height: 100vh;
+            padding: 30px;
+            color: #2d3748;
+            line-height: 1.6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #1a202c;
+            font-size: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header h1 i {
+            color: #667eea;
+            font-size: 38px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea, #7c3aed);
+        }
+
+        .game-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #7c3aed 100%);
+            margin: 0 auto 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 35px;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .game-card:hover .game-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .game-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 15px;
+        }
+
+        .game-desc {
+            font-size: 15px;
+            color: #718096;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .game-meta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .game-duration {
+            background: #edf2f7;
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-size: 14px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .game-duration i {
+            color: #667eea;
+            margin-right: 5px;
+        }
+
+        .play-button {
+            background: linear-gradient(135deg, #667eea 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .play-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .game-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 32px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <i class="fas fa-brain"></i>
+                НейроСтат
+            </h1>
+        </div>
+
+        <div class="game-grid">
+            <!-- Игра на концентрацию -->
+            <div class="game-card" onclick="location.href='/concentration'">
+                <div class="game-icon">
+                    <i class="fas fa-bullseye"></i>
+                </div>
+                <div class="game-title">Концентрация</div>
+                <div class="game-desc">
+                    Следите за уровнем концентрации в реальном времени.
+                </div>
+                <div class="game-meta">
+                    <span class="game-duration">
+                        <i class="far fa-clock"></i> Неограниченно
+                    </span>
+                </div>
+                <button class="play-button" onclick="event.stopPropagation(); location.href='/concentration'">
+                    <i class="fas fa-play"></i> Играть
+                </button>
+            </div>
+
+            <!-- Спокойствие vs Стресс -->
+            <div class="game-card" onclick="location.href='/calm_vs_stress'">
+                <div class="game-icon">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <div class="game-title">Спокойствие vs Стресс</div>
+                <div class="game-desc">
+                    Сравните свои показатели в спокойном состоянии
+                    и под воздействием стрессовой задачи.
+                </div>
+                <div class="game-meta">
+                    <span class="game-duration">
+                        <i class="far fa-clock"></i> 2 минуты
+                    </span>
+                </div>
+                <button class="play-button" onclick="event.stopPropagation(); location.href='/calm_vs_stress'">
+                    <i class="fas fa-play"></i> Играть
+                </button>
+            </div>
+
+            <!-- Just Relax -->
+            <div class="game-card" onclick="location.href='/just_relax'">
+                <div class="game-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="game-title">Just Relax</div>
+                <div class="game-desc">
+                    Соревнование двух игроков. Побеждает тот,
+                    кто сможет достичь более низкого уровня стресса.
+                </div>
+                <div class="game-meta">
+                    <span class="game-duration">
+                        <i class="far fa-clock"></i> 3 минуты
+                    </span>
+                </div>
+                <button class="play-button" onclick="event.stopPropagation(); location.href='/just_relax'">
+                    <i class="fas fa-play"></i> Играть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Анимация появления карточек
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.game-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 150);
+            });
+        });
+    </script>
+</body>
+</html>

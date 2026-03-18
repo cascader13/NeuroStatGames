@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Just Relax - Соревнование в спокойствии</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            min-height: 100vh;
+            padding: 30px;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: #1a202c;
+            margin-bottom: 25px;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 i {
+            color: #667eea;
+            font-size: 28px;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 20px;
+            background: #edf2f7;
+            border-radius: 30px;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-select {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .user-select label {
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .user-select select {
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+            min-width: 150px;
+        }
+
+        .user-select select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #1a202c;
+            margin-bottom: 25px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 i {
+            color: #667eea;
+            font-size: 20px;
+        }
+
+        .player-stats {
+            text-align: center;
+        }
+
+        .player-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #7c3aed 100%);
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .current-value {
+            font-size: 64px;
+            font-weight: 700;
+            margin: 20px 0;
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+
+        .current-value small {
+            font-size: 24px;
+            color: #718096;
+        }
+
+        .current-value:hover {
+            transform: scale(1.05);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #edf2f7;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f56565, #ecc94b, #48bb78);
+            transition: width 0.3s ease;
+        }
+
+        .timer {
+            font-size: 72px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 30px 0;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .winner {
+            background: #d4edda;
+            color: #155724;
+            padding: 25px;
+            text-align: center;
+            margin-top: 30px;
+            border-radius: 15px;
+            display: none;
+            font-size: 24px;
+            font-weight: 600;
+            border-left: 5px solid #48bb78;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .player-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .badge-player1 {
+            background: #667eea;
+            color: white;
+        }
+
+        .badge-player2 {
+            background: #7c3aed;
+            color: white;
+        }
+
+        #notificationArea {
+            margin-top: 20px;
+        }
+
+        .user-switch-notification {
+            background: #ebf8ff;
+            border-left: 5px solid #4299e1;
+            padding: 15px 20px;
+            border-radius: 10px;
+            animation: slideIn 0.4s ease-out;
+            opacity: 1;
+            box-shadow: 0 2px 10px rgba(66, 153, 225, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-brain"></i> Just Relax - Соревнование в спокойствии</h1>
+            <div class="status-bar">
+                <span id="connectionStatus" class="connection-status status-disconnected">
+                    <i class="fas fa-plug"></i> Отключено
+                </span>
+                <span id="dataStatus" style="color: #718096; font-size: 14px;"></span>
+            </div>
+            <div class="user-select">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="player1Select"><i class="fas fa-user"></i> Игрок 1:</label>
+                    <select id="player1Select" onchange="switchPlayer(1, this.value)">
+                        <option value="">Выберите игрока</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="player2Select"><i class="fas fa-user-friends"></i> Игрок 2:</label>
+                    <select id="player2Select" onchange="switchPlayer(2, this.value)">
+                        <option value="">Выберите игрока</option>
+                    </select>
+                </div>
+            </div>
+            <div id="notificationArea"></div>
+        </div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2><i class="fas fa-user"></i> Игрок 1</h2>
+                <div class="player-stats">
+                    <div class="player-avatar" style="background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div id="player1Name" class="player-badge badge-player1">Не выбран</div>
+                    <div id="player1Relax" class="current-value" style="color: #48bb78;">50<small>%</small></div>
+                    <div class="progress-bar">
+                        <div id="player1Progress" class="progress-fill" style="width: 50%;"></div>
+                    </div>
+                    <div style="color: #718096; font-size: 14px;">Уровень спокойствия</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-user-friends"></i> Игрок 2</h2>
+                <div class="player-stats">
+                    <div class="player-avatar" style="background: linear-gradient(135deg, #7c3aed 0%, #6b21a8 100%);">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div id="player2Name" class="player-badge badge-player2">Не выбран</div>
+                    <div id="player2Relax" class="current-value" style="color: #48bb78;">50<small>%</small></div>
+                    <div class="progress-bar">
+                        <div id="player2Progress" class="progress-fill" style="width: 50%;"></div>
+                    </div>
+                    <div style="color: #718096; font-size: 14px;">Уровень спокойствия</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="timer" id="timer">03:00</div>
+        <div class="winner" id="winner"></div>
+    </div>
+<script>
+    let socket;
+    let playerStates = {
+        player1: { userId: '', relax: 50 },
+        player2: { userId: '', relax: 50 }
+    };
+    let availableUsers = new Set();
+
+    function showNotification(message, type = 'info') {
+        const notificationArea = document.getElementById('notificationArea');
+        const notification = document.createElement('div');
+        notification.className = 'user-switch-notification';
+        notification.innerHTML = `
+            ${message}
+            <br>
+            <small>${new Date().toLocaleTimeString()}</small>
+        `;
+
+        notificationArea.innerHTML = '';
+        notificationArea.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+
+    function switchPlayer(playerNum, userId) {
+        const player = `player${playerNum}`;
+
+        if (userId) {
+            const otherPlayer = playerNum === 1 ? 'player2' : 'player1';
+            if (playerStates[otherPlayer].userId === userId) {
+                showNotification(`Пользователь ${userId} уже выбран как Игрок ${otherPlayer === 'player2' ? '2' : '1'}!`, 'warning');
+                document.getElementById(`player${playerNum}Select`).value = '';
+                return;
+            }
+        }
+
+        playerStates[player].userId = userId;
+        const nameElement = document.getElementById(`player${playerNum}Name`);
+        nameElement.innerText = userId || 'Не выбран';
+
+        if (userId) {
+            showNotification(`Игрок ${playerNum} выбран: ${userId}`);
+        }
+    }
+
+    function updatePlayerDisplay(playerNum) {
+        const player = `player${playerNum}`;
+        const relax = playerStates[player].relax;
+        const relaxElement = document.getElementById(`${player}Relax`);
+        const progressElement = document.getElementById(`${player}Progress`);
+
+        const displayRelax = Math.min(100, Math.max(0, relax));
+        relaxElement.innerHTML = `${displayRelax.toFixed(1)}<small>%</small>`;
+
+        let color = '#f56565';
+        if (displayRelax > 40) color = '#ecc94b';
+        if (displayRelax > 70) color = '#48bb78';
+        relaxElement.style.color = color;
+
+        progressElement.style.width = `${displayRelax}%`;
+    }
+
+    function addUserToSelect(userId) {
+        if (!availableUsers.has(userId)) {
+            availableUsers.add(userId);
+
+            [1, 2].forEach(playerNum => {
+                const select = document.getElementById(`player${playerNum}Select`);
+                const option = document.createElement('option');
+                option.value = userId;
+                option.text = userId;
+                select.appendChild(option);
+            });
+
+            showNotification(`Новый пользователь: ${userId}`);
+        }
+    }
+
+    function connectSocket() {
+        socket = io({
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+
+        socket.on('connect', () => {
+            document.getElementById('connectionStatus').className = 'connection-status status-connected';
+            document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> Подключено';
+            document.getElementById('dataStatus').innerHTML = 'Ожидание данных...';
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Ошибка подключения:', error);
+            document.getElementById('dataStatus').innerHTML = 'Ошибка подключения';
+        });
+
+        socket.on('disconnect', (reason) => {
+            document.getElementById('connectionStatus').className = 'connection-status status-disconnected';
+            document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> Отключено';
+            document.getElementById('dataStatus').innerHTML = '⏸ Отключено';
+        });
+
+        // Слушаем обновления спокойствия (relax)
+        socket.on('relax_update', (data) => {
+            console.log('Relax update получен:', data);
+            document.getElementById('dataStatus').innerHTML = '✅ Данные поступают';
+
+            addUserToSelect(data.user_id);
+
+            Object.keys(playerStates).forEach(player => {
+                if (playerStates[player].userId === data.user_id) {
+                    playerStates[player].relax = data.normalized_relax || 50;
+                    updatePlayerDisplay(player === 'player1' ? 1 : 2);
+                }
+            });
+        });
+
+        // Поддержка батч-событий
+        socket.on('relax_update_batch', (batchData) => {
+            console.log('Получен батч relax:', batchData);
+            batchData.forEach(data => {
+                addUserToSelect(data.user_id);
+
+                Object.keys(playerStates).forEach(player => {
+                    if (playerStates[player].userId === data.user_id) {
+                        playerStates[player].relax = data.normalized_relax || 50;
+                        updatePlayerDisplay(player === 'player1' ? 1 : 2);
+                    }
+                });
+            });
+        });
+    }
+
+    // Таймер 3 минуты
+    let timeLeft = 180;
+    const timerInterval = setInterval(() => {
+        timeLeft--;
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        document.getElementById('timer').innerText = `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+
+            if (playerStates.player1.userId && playerStates.player2.userId) {
+                const p1Relax = playerStates.player1.relax;
+                const p2Relax = playerStates.player2.relax;
+
+                let winnerMessage = '';
+                if (p1Relax > p2Relax) {
+                    winnerMessage = `🏆 Победитель: Игрок 1 (${playerStates.player1.userId}) с уровнем спокойствия ${p1Relax.toFixed(1)}%!`;
+                } else if (p2Relax > p1Relax) {
+                    winnerMessage = `🏆 Победитель: Игрок 2 (${playerStates.player2.userId}) с уровнем спокойствия ${p2Relax.toFixed(1)}%!`;
+                } else {
+                    winnerMessage = `🤝 Ничья! Оба игрока показали одинаковый результат ${p1Relax.toFixed(1)}%!`;
+                }
+
+                document.getElementById('winner').innerText = winnerMessage;
+                document.getElementById('winner').style.display = 'block';
+            } else {
+                document.getElementById('winner').innerText = '⚠️ Для определения победителя нужно выбрать обоих игроков!';
+                document.getElementById('winner').style.display = 'block';
+            }
+        }
+    }, 1000);
+
+    window.onload = function() {
+        connectSocket();
+    };
+</script>
+</body>
+</html>

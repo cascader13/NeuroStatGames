@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Спокойствие vs Стресс - Neuro Games</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            min-height: 100vh;
+            padding: 30px;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: #1a202c;
+            margin-bottom: 25px;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 i {
+            color: #667eea;
+            font-size: 28px;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 20px;
+            background: #edf2f7;
+            border-radius: 30px;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-select {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-select label {
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .user-select select {
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .user-select select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #1a202c;
+            margin-bottom: 25px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 i {
+            color: #667eea;
+            font-size: 20px;
+        }
+
+        .gauge-container {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .gauge {
+            width: 160px;
+            height: 320px;
+            margin: 0 auto 25px;
+            background: linear-gradient(to top, #48bb78 0%, #ecc94b 50%, #f56565 100%);
+            border-radius: 80px 80px 25px 25px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .gauge-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, #edf2f7, #e2e8f0);
+            transition: height 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            border-radius: 80px 80px 0 0;
+            opacity: 0.95;
+        }
+
+        .gauge-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .gauge-label {
+            color: #718096;
+        }
+
+        .gauge-label.high {
+            color: #f56565;
+        }
+
+        .gauge-label.medium {
+            color: #ecc94b;
+        }
+
+        .gauge-label.low {
+            color: #48bb78;
+        }
+
+        .current-value {
+            font-size: 42px;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 25px 0;
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+
+        .current-value small {
+            font-size: 18px;
+            color: #718096;
+        }
+
+        .current-value:hover {
+            transform: scale(1.05);
+        }
+
+        .phase {
+            font-size: 18px;
+            color: #1a202c;
+            text-align: center;
+            margin: 20px 0 10px;
+            font-weight: 600;
+        }
+
+        .timer {
+            font-size: 48px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 20px 0;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .stress-task {
+            background: #f8d7da;
+            padding: 20px;
+            border-radius: 15px;
+            color: #721c24;
+            margin: 20px 0;
+            display: none;
+            border-left: 5px solid #f56565;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .chart-container {
+            height: 320px;
+            margin-top: 25px;
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 15px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #718096;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .reset-button {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 101, 101, 0.4);
+        }
+
+        .user-switch-notification {
+            background: #ebf8ff;
+            border-left: 5px solid #4299e1;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            animation: slideIn 0.4s ease-out;
+            opacity: 1;
+            box-shadow: 0 2px 10px rgba(66, 153, 225, 0.1);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-brain"></i> Спокойствие vs Стресс</h1>
+            <div class="status-bar">
+                <span id="connectionStatus" class="connection-status status-disconnected">
+                    <i class="fas fa-plug"></i> 🔴 Отключено
+                </span>
+                <span id="currentUser" class="user-info">
+                    <i class="fas fa-user"></i> Все пользователи
+                </span>
+                <span id="dataStatus" style="color: #718096; font-size: 14px;"></span>
+            </div>
+            <div class="user-select">
+                <label for="userSelect">Выберите пользователя:</label>
+                <select id="userSelect" onchange="switchUser(this.value)">
+                    <option value="">Все пользователи</option>
+                </select>
+            </div>
+            <div id="notificationArea"></div>
+        </div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2><i class="fas fa-tachometer-alt"></i> Текущий уровень</h2>
+                <div class="gauge-container">
+                    <div class="gauge">
+                        <div id="gaugeFill" class="gauge-fill" style="height: 50%;"></div>
+                    </div>
+                    <div class="gauge-labels">
+                        <span class="gauge-label low">Спокойствие</span>
+                        <span class="gauge-label medium">Средний</span>
+                        <span class="gauge-label high">Стресс</span>
+                    </div>
+                    <div id="currentStress" class="current-value">50<small>%</small></div>
+                    <div id="currentRelax" class="current-value" style="margin-top: 10px; font-size: 32px;">50<small>%</small></div>
+                </div>
+                <div class="phase" id="phase">Фаза: Спокойствие (30 секунд)</div>
+                <div class="timer" id="timer">00:30</div>
+                <div class="stress-task" id="stressTask">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Стресс-задача: Решите быстро: 17 × 23 = ? (Подумать 1 минуту)
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-chart-line"></i> История изменений (последние 20 точек)</h2>
+                <div class="chart-container">
+                    <canvas id="stressChart"></canvas>
+                </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div id="avgStress" class="stat-value">0</div>
+                        <div class="stat-label">Ср. стресс</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="avgRelax" class="stat-value">0</div>
+                        <div class="stat-label">Ср. спокойствие</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="maxStress" class="stat-value">0</div>
+                        <div class="stat-label">Пик стресса</div>
+                    </div>
+                </div>
+                <button class="reset-button" onclick="resetChart()"><i class="fas fa-sync-alt"></i> Сбросить график</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let userStates = {};
+        let currentUserId = '';
+        const MAX_POINTS = 20;
+
+        const ctx = document.getElementById('stressChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Стресс (%)',
+                    data: [],
+                    borderColor: '#f56565',
+                    backgroundColor: 'rgba(245, 101, 101, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#f56565',
+                    pointBorderWidth: 2
+                }, {
+                    label: 'Спокойствие (%)',
+                    data: [],
+                    borderColor: '#48bb78',
+                    backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#48bb78',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 300
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Уровень (%)',
+                            color: '#4a5568',
+                            font: { size: 12 }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            maxTicksLimit: 10
+                        }
+                    }
+                }
+            }
+        });
+
+        // Таймер игры
+        let phase = 'calm';
+        let timeLeft = 30;
+        const timerElem = document.getElementById('timer');
+        const phaseElem = document.getElementById('phase');
+        const stressTask = document.getElementById('stressTask');
+
+        const timerInterval = setInterval(() => {
+            timeLeft--;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerElem.innerText = `${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+
+            if (timeLeft <= 0) {
+                if (phase === 'calm') {
+                    phase = 'stress';
+                    phaseElem.innerText = 'Фаза: Стресс (1 минута)';
+                    stressTask.style.display = 'block';
+                    timeLeft = 60;
+                } else {
+                    clearInterval(timerInterval);
+                    phaseElem.innerText = '🎮 Игра завершена! Сравните графики.';
+                    stressTask.style.display = 'none';
+                }
+            }
+        }, 1000);
+
+        function showNotification(message) {
+            const notificationArea = document.getElementById('notificationArea');
+            const notification = document.createElement('div');
+            notification.className = 'user-switch-notification';
+            notification.innerHTML = `
+                ${message}
+                <br>
+                <small>${new Date().toLocaleTimeString()}</small>
+            `;
+
+            notificationArea.innerHTML = '';
+            notificationArea.appendChild(notification);
+
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+        function switchUser(userId) {
+            currentUserId = userId;
+            document.getElementById('currentUser').innerHTML = userId ? `<i class="fas fa-user"></i> ${userId}` : '<i class="fas fa-users"></i> Все пользователи';
+
+            const targetUserId = userId || getLastActiveUserId();
+            if (targetUserId && userStates[targetUserId]) {
+                const state = userStates[targetUserId];
+                updateGauge(state.lastStress || 50, state.lastRelax || 50);
+
+                chart.data.labels = [...state.chartData.labels];
+                chart.data.datasets[0].data = [...state.chartData.stressValues];
+                chart.data.datasets[1].data = [...state.chartData.relaxValues];
+                chart.update();
+
+                updateStats(state.chartData.stressValues, state.chartData.relaxValues);
+            }
+        }
+
+        function getLastActiveUserId() {
+            const userIds = Object.keys(userStates);
+            return userIds.length > 0 ? userIds[userIds.length - 1] : null;
+        }
+
+        function getUserState(userId) {
+            if (!userStates[userId]) {
+                userStates[userId] = {
+                    lastStress: 50,
+                    lastRelax: 50,
+                    chartData: { labels: [], stressValues: [], relaxValues: [] }
+                };
+                const select = document.getElementById('userSelect');
+                const option = document.createElement('option');
+                option.value = userId;
+                option.text = userId;
+                select.appendChild(option);
+                showNotification(`🆕 Новый пользователь: ${userId}`);
+            }
+            return userStates[userId];
+        }
+
+        function connectSocket() {
+            socket = io({
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
+            });
+
+            socket.on('connect', () => {
+                document.getElementById('connectionStatus').className = 'connection-status status-connected';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> 🟢 Подключено';
+                document.getElementById('dataStatus').innerHTML = 'Ожидание данных...';
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Ошибка подключения:', error);
+                document.getElementById('dataStatus').innerHTML = 'Ошибка подключения';
+            });
+
+            socket.on('disconnect', () => {
+                document.getElementById('connectionStatus').className = 'connection-status status-disconnected';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> 🔴 Отключено';
+                document.getElementById('dataStatus').innerHTML = '⏸ Отключено';
+            });
+
+            // Слушаем обновления стресса
+            socket.on('stress_update', (data) => {
+                console.log('Stress update получен:', data);
+                document.getElementById('dataStatus').innerHTML = '✅ Данные поступают';
+
+                const state = getUserState(data.user_id);
+                state.lastStress = data.normalized_stress;
+
+                const time = new Date().toLocaleTimeString();
+
+                // Добавляем точку только если это новое время
+                if (state.chartData.labels.length === 0 || state.chartData.labels[state.chartData.labels.length - 1] !== time) {
+                    state.chartData.labels.push(time);
+                    state.chartData.stressValues.push(data.normalized_stress);
+
+                    // Сохраняем предыдущее значение relax или 50
+                    const lastRelax = state.chartData.relaxValues.length > 0 ?
+                        state.chartData.relaxValues[state.chartData.relaxValues.length - 1] : 50;
+                    state.chartData.relaxValues.push(lastRelax);
+                } else {
+                    // Обновляем последнюю точку
+                    state.chartData.stressValues[state.chartData.stressValues.length - 1] = data.normalized_stress;
+                }
+
+                // Ограничиваем количество точек
+                if (state.chartData.labels.length > MAX_POINTS) {
+                    state.chartData.labels.shift();
+                    state.chartData.stressValues.shift();
+                    state.chartData.relaxValues.shift();
+                }
+
+                if (currentUserId === '' || currentUserId === data.user_id) {
+                    updateGauge(state.lastStress, state.lastRelax);
+
+                    chart.data.labels = [...state.chartData.labels];
+                    chart.data.datasets[0].data = [...state.chartData.stressValues];
+                    chart.data.datasets[1].data = [...state.chartData.relaxValues];
+                    chart.update();
+
+                    updateStats(state.chartData.stressValues, state.chartData.relaxValues);
+                }
+            });
+
+            // Слушаем обновления спокойствия
+            socket.on('relax_update', (data) => {
+                console.log('Relax update получен:', data);
+                document.getElementById('dataStatus').innerHTML = '✅ Данные поступают';
+
+                const state = getUserState(data.user_id);
+                state.lastRelax = data.normalized_relax;
+
+                const time = new Date().toLocaleTimeString();
+
+                // Добавляем точку только если это новое время
+                if (state.chartData.labels.length === 0 || state.chartData.labels[state.chartData.labels.length - 1] !== time) {
+                    state.chartData.labels.push(time);
+                    state.chartData.relaxValues.push(data.normalized_relax);
+
+                    // Сохраняем предыдущее значение stress или 50
+                    const lastStress = state.chartData.stressValues.length > 0 ?
+                        state.chartData.stressValues[state.chartData.stressValues.length - 1] : 50;
+                    state.chartData.stressValues.push(lastStress);
+                } else {
+                    // Обновляем последнюю точку
+                    state.chartData.relaxValues[state.chartData.relaxValues.length - 1] = data.normalized_relax;
+                }
+
+                // Ограничиваем количество точек
+                if (state.chartData.labels.length > MAX_POINTS) {
+                    state.chartData.labels.shift();
+                    state.chartData.stressValues.shift();
+                    state.chartData.relaxValues.shift();
+                }
+
+                if (currentUserId === '' || currentUserId === data.user_id) {
+                    updateGauge(state.lastStress, state.lastRelax);
+
+                    chart.data.labels = [...state.chartData.labels];
+                    chart.data.datasets[0].data = [...state.chartData.stressValues];
+                    chart.data.datasets[1].data = [...state.chartData.relaxValues];
+                    chart.update();
+
+                    updateStats(state.chartData.stressValues, state.chartData.relaxValues);
+                }
+            });
+
+            // Поддержка батч-событий
+            socket.on('stress_update_batch', (batchData) => {
+                console.log('Получен батч stress:', batchData);
+                batchData.forEach(data => {
+                    const state = getUserState(data.user_id);
+                    state.lastStress = data.normalized_stress;
+
+                    const time = new Date().toLocaleTimeString();
+
+                    if (state.chartData.labels.length === 0 || state.chartData.labels[state.chartData.labels.length - 1] !== time) {
+                        state.chartData.labels.push(time);
+                        state.chartData.stressValues.push(data.normalized_stress);
+
+                        const lastRelax = state.chartData.relaxValues.length > 0 ?
+                            state.chartData.relaxValues[state.chartData.relaxValues.length - 1] : 50;
+                        state.chartData.relaxValues.push(lastRelax);
+                    } else {
+                        state.chartData.stressValues[state.chartData.stressValues.length - 1] = data.normalized_stress;
+                    }
+
+                    if (state.chartData.labels.length > MAX_POINTS) {
+                        state.chartData.labels.shift();
+                        state.chartData.stressValues.shift();
+                        state.chartData.relaxValues.shift();
+                    }
+
+                    if (currentUserId === '' || currentUserId === data.user_id) {
+                        updateGauge(state.lastStress, state.lastRelax);
+
+                        chart.data.labels = [...state.chartData.labels];
+                        chart.data.datasets[0].data = [...state.chartData.stressValues];
+                        chart.data.datasets[1].data = [...state.chartData.relaxValues];
+                        chart.update();
+
+                        updateStats(state.chartData.stressValues, state.chartData.relaxValues);
+                    }
+                });
+            });
+
+            socket.on('relax_update_batch', (batchData) => {
+                console.log('Получен батч relax:', batchData);
+                batchData.forEach(data => {
+                    const state = getUserState(data.user_id);
+                    state.lastRelax = data.normalized_relax;
+
+                    const time = new Date().toLocaleTimeString();
+
+                    if (state.chartData.labels.length === 0 || state.chartData.labels[state.chartData.labels.length - 1] !== time) {
+                        state.chartData.labels.push(time);
+                        state.chartData.relaxValues.push(data.normalized_relax);
+
+                        const lastStress = state.chartData.stressValues.length > 0 ?
+                            state.chartData.stressValues[state.chartData.stressValues.length - 1] : 50;
+                        state.chartData.stressValues.push(lastStress);
+                    } else {
+                        state.chartData.relaxValues[state.chartData.relaxValues.length - 1] = data.normalized_relax;
+                    }
+
+                    if (state.chartData.labels.length > MAX_POINTS) {
+                        state.chartData.labels.shift();
+                        state.chartData.stressValues.shift();
+                        state.chartData.relaxValues.shift();
+                    }
+
+                    if (currentUserId === '' || currentUserId === data.user_id) {
+                        updateGauge(state.lastStress, state.lastRelax);
+
+                        chart.data.labels = [...state.chartData.labels];
+                        chart.data.datasets[0].data = [...state.chartData.stressValues];
+                        chart.data.datasets[1].data = [...state.chartData.relaxValues];
+                        chart.update();
+
+                        updateStats(state.chartData.stressValues, state.chartData.relaxValues);
+                    }
+                });
+            });
+        }
+
+        function updateGauge(stress, relax) {
+            const gaugeFill = document.getElementById('gaugeFill');
+            const currentStress = document.getElementById('currentStress');
+            const currentRelax = document.getElementById('currentRelax');
+
+            stress = Math.max(0, Math.min(100, stress || 50));
+            relax = Math.max(0, Math.min(100, relax || 50));
+
+            gaugeFill.style.height = stress + '%';
+
+            let color = '#48bb78';
+            if (stress > 70) color = '#f56565';
+            else if (stress > 40) color = '#ecc94b';
+
+            currentStress.innerHTML = `${stress.toFixed(1)}<small>%</small>`;
+            currentStress.style.color = color;
+            currentRelax.innerHTML = `${relax.toFixed(1)}<small>%</small>`;
+            currentRelax.style.color = '#48bb78';
+        }
+
+        function updateStats(stressValues, relaxValues) {
+            if (stressValues.length > 0) {
+                const avgStress = stressValues.reduce((a, b) => a + b, 0) / stressValues.length;
+                const avgRelax = relaxValues.length > 0 ? relaxValues.reduce((a, b) => a + b, 0) / relaxValues.length : 0;
+                const maxStress = Math.max(...stressValues);
+
+                document.getElementById('avgStress').innerHTML = avgStress.toFixed(1);
+                document.getElementById('avgRelax').innerHTML = avgRelax.toFixed(1);
+                document.getElementById('maxStress').innerHTML = maxStress.toFixed(1);
+            }
+        }
+
+        function resetChart() {
+            const targetUserId = currentUserId || getLastActiveUserId();
+            if (targetUserId && userStates[targetUserId]) {
+                userStates[targetUserId].chartData.labels = [];
+                userStates[targetUserId].chartData.stressValues = [];
+                userStates[targetUserId].chartData.relaxValues = [];
+
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.data.datasets[1].data = [];
+                chart.update();
+
+                document.getElementById('avgStress').innerHTML = '0';
+                document.getElementById('avgRelax').innerHTML = '0';
+                document.getElementById('maxStress').innerHTML = '0';
+            }
+        }
+
+        window.onload = function() {
+            connectSocket();
+        };
+    </script>
+</body>
+</html>

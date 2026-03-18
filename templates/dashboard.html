@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Концентрация в реальном времени</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Стили остаются без изменений */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            min-height: 100vh;
+            padding: 30px;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: #1a202c;
+            margin-bottom: 25px;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 i {
+            color: #667eea;
+            font-size: 28px;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px 20px;
+            background: #edf2f7;
+            border-radius: 30px;
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-select {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-select label {
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .user-select select {
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .user-select select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #1a202c;
+            margin-bottom: 25px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 i {
+            color: #667eea;
+            font-size: 20px;
+        }
+
+        .gauge-container {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .gauge {
+            width: 160px;
+            height: 320px;
+            margin: 0 auto 25px;
+            background: linear-gradient(to top, #f56565 0%, #ecc94b 50%, #48bb78 100%);
+            border-radius: 80px 80px 25px 25px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .gauge-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, #edf2f7, #e2e8f0);
+            transition: height 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            border-radius: 80px 80px 0 0;
+            opacity: 0.95;
+        }
+
+        .gauge-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .gauge-label {
+            color: #718096;
+        }
+
+        .gauge-label.high {
+            color: #48bb78;
+        }
+
+        .gauge-label.medium {
+            color: #ecc94b;
+        }
+
+        .gauge-label.low {
+            color: #f56565;
+        }
+
+        .current-value {
+            font-size: 42px;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 25px 0;
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+
+        .current-value small {
+            font-size: 18px;
+            color: #718096;
+        }
+
+        .current-value:hover {
+            transform: scale(1.05);
+        }
+
+        .baseline-info {
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 15px;
+            margin: 20px 0;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .baseline-info p {
+            margin: 8px 0;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .chart-container {
+            height: 320px;
+            margin-top: 25px;
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 15px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #718096;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .reset-button {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 101, 101, 0.4);
+        }
+
+        .user-switch-notification {
+            background: #ebf8ff;
+            border-left: 5px solid #4299e1;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            animation: slideIn 0.4s ease-out;
+            opacity: 1;
+            box-shadow: 0 2px 10px rgba(66, 153, 225, 0.1);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-brain"></i> Neuro Dashboard - Мониторинг концентрации</h1>
+            <div class="status-bar">
+                <span id="connectionStatus" class="connection-status status-disconnected">
+                    <i class="fas fa-plug"></i> 🔴 Отключено
+                </span>
+                <span id="currentUser" class="user-info">
+                    <i class="fas fa-user"></i> Все пользователи
+                </span>
+                <span id="dataStatus" style="color: #718096; font-size: 14px;"></span>
+            </div>
+
+            <div class="user-select">
+                <label for="userSelect">Выберите пользователя:</label>
+                <select id="userSelect" onchange="switchUser(this.value)">
+                    <option value="">Все пользователи</option>
+                </select>
+            </div>
+
+            <div id="notificationArea"></div>
+        </div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2><i class="fas fa-tachometer-alt"></i> Текущая концентрация</h2>
+                <div class="gauge-container">
+                    <div class="gauge">
+                        <div id="gaugeFill" class="gauge-fill" style="height: 50%;"></div>
+                    </div>
+                    <div class="gauge-labels">
+                        <span class="gauge-label low">Низкая</span>
+                        <span class="gauge-label medium">Средняя</span>
+                        <span class="gauge-label high">Высокая</span>
+                    </div>
+
+                    <div id="currentValue" class="current-value">
+                        50<small>%</small>
+                    </div>
+
+                    <div id="baselineInfo" class="baseline-info">
+                        <p>⏳ Ожидание baseline...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-chart-line"></i> История изменений (последние 20 точек)</h2>
+                <div class="chart-container">
+                    <canvas id="concentrationChart"></canvas>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-item">
+                        <div id="avgValue" class="stat-value">0</div>
+                        <div class="stat-label">Среднее</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="minValue" class="stat-value">0</div>
+                        <div class="stat-label">Минимум</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="maxValue" class="stat-value">0</div>
+                        <div class="stat-label">Максимум</div>
+                    </div>
+                </div>
+
+                <button class="reset-button" onclick="resetChart()"><i class="fas fa-sync-alt"></i> Сбросить график</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let userStates = {};
+        let currentUserId = '';
+        const MAX_POINTS = 20;
+
+        // Инициализация графика
+        const ctx = document.getElementById('concentrationChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Концентрация (%)',
+                    data: [],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#667eea',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 300
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Концентрация (%)',
+                            color: '#4a5568',
+                            font: { size: 12 }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            maxTicksLimit: 10
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        function showNotification(message) {
+            const notificationArea = document.getElementById('notificationArea');
+            const notification = document.createElement('div');
+            notification.className = 'user-switch-notification';
+            notification.innerHTML = `
+                ${message}
+                <br>
+                <small>${new Date().toLocaleTimeString()}</small>
+            `;
+
+            notificationArea.innerHTML = '';
+            notificationArea.appendChild(notification);
+
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+        function switchUser(userId) {
+            currentUserId = userId;
+            document.getElementById('currentUser').innerHTML = userId ? `<i class="fas fa-user"></i> ${userId}` : '<i class="fas fa-users"></i> Все пользователи';
+
+            const targetUserId = userId || getLastActiveUserId();
+            if (targetUserId && userStates[targetUserId]) {
+                const state = userStates[targetUserId];
+                updateGauge(state.lastValue || 50);
+                document.getElementById('baselineInfo').innerHTML = state.baselineInfo || '<p>⏳ Ожидание baseline...</p>';
+
+                chart.data.labels = [...state.chartData.labels];
+                chart.data.datasets[0].data = [...state.chartData.values];
+                chart.update();
+                updateStats(state.chartData.values);
+            }
+        }
+
+        function getLastActiveUserId() {
+            const userIds = Object.keys(userStates);
+            return userIds.length > 0 ? userIds[userIds.length - 1] : null;
+        }
+
+        function getUserState(userId) {
+            if (!userStates[userId]) {
+                userStates[userId] = {
+                    baseline: null,
+                    lastValue: 50,
+                    baselineInfo: '<p>⏳ Ожидание baseline...</p>',
+                    chartData: { labels: [], values: [] }
+                };
+
+                const select = document.getElementById('userSelect');
+                const option = document.createElement('option');
+                option.value = userId;
+                option.text = userId;
+                select.appendChild(option);
+
+                showNotification(`🆕 Новый пользователь: ${userId}`);
+            }
+            return userStates[userId];
+        }
+
+        function connectSocket() {
+            socket = io({
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
+            });
+
+            socket.on('connect', () => {
+                document.getElementById('connectionStatus').className = 'connection-status status-connected';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> 🟢 Подключено';
+                document.getElementById('dataStatus').innerHTML = '⏳ Ожидание данных...';
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Ошибка подключения:', error);
+                document.getElementById('dataStatus').innerHTML = '❌ Ошибка подключения';
+            });
+
+            socket.on('disconnect', () => {
+                document.getElementById('connectionStatus').className = 'connection-status status-disconnected';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> 🔴 Отключено';
+                document.getElementById('dataStatus').innerHTML = '⏸ Отключено';
+            });
+
+            // Слушаем событие baseline_received
+            socket.on('baseline_received', (data) => {
+                console.log('Baseline получен:', data);
+                const state = getUserState(data.user_id);
+                state.baseline = data.value;
+                state.baselineInfo = `
+                    <p>✅ Baseline: <strong>${data.value.toFixed(2)}</strong></p>
+                    <p>📅 ${new Date(data.timestamp * 1000).toLocaleTimeString()}</p>
+                `;
+
+                if (currentUserId === '' || currentUserId === data.user_id) {
+                    document.getElementById('baselineInfo').innerHTML = state.baselineInfo;
+                }
+            });
+
+            // Слушаем событие concentration_update
+            socket.on('concentration_update', (data) => {
+                console.log('Концентрация получена:', data);
+                document.getElementById('dataStatus').innerHTML = '✅ Данные поступают';
+
+                const state = getUserState(data.user_id);
+                state.lastValue = data.normalized_value;
+
+                // Добавляем новую точку данных
+                const time = new Date().toLocaleTimeString();
+                state.chartData.labels.push(time);
+                state.chartData.values.push(data.normalized_value);
+
+                // Ограничиваем количество точек
+                if (state.chartData.labels.length > MAX_POINTS) {
+                    state.chartData.labels.shift();
+                    state.chartData.values.shift();
+                }
+
+                // Обновляем отображение если это выбранный пользователь
+                if (currentUserId === '' || currentUserId === data.user_id) {
+                    updateGauge(data.normalized_value);
+
+                    chart.data.labels = [...state.chartData.labels];
+                    chart.data.datasets[0].data = [...state.chartData.values];
+                    chart.update();
+
+                    updateStats(state.chartData.values);
+                }
+            });
+
+            // Поддержка батч-событий
+            socket.on('concentration_update_batch', (batchData) => {
+                console.log('Получен батч данных:', batchData);
+                batchData.forEach(data => {
+                    const state = getUserState(data.user_id);
+                    state.lastValue = data.normalized_value;
+
+                    const time = new Date().toLocaleTimeString();
+                    state.chartData.labels.push(time);
+                    state.chartData.values.push(data.normalized_value);
+
+                    if (state.chartData.labels.length > MAX_POINTS) {
+                        state.chartData.labels.shift();
+                        state.chartData.values.shift();
+                    }
+
+                    if (currentUserId === '' || currentUserId === data.user_id) {
+                        updateGauge(data.normalized_value);
+                        chart.data.labels = [...state.chartData.labels];
+                        chart.data.datasets[0].data = [...state.chartData.values];
+                        chart.update();
+                        updateStats(state.chartData.values);
+                    }
+                });
+            });
+        }
+
+        function updateGauge(value) {
+            const gaugeFill = document.getElementById('gaugeFill');
+            const currentValueElem = document.getElementById('currentValue');
+
+            value = Math.max(0, Math.min(100, value));
+            gaugeFill.style.height = value + '%';
+
+            let color = '#48bb78';
+            if (value < 30) color = '#f56565';
+            else if (value < 60) color = '#ecc94b';
+
+            currentValueElem.innerHTML = `${value.toFixed(1)}<small>%</small>`;
+            currentValueElem.style.color = color;
+        }
+
+        function updateStats(values) {
+            if (values.length > 0) {
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+
+                document.getElementById('avgValue').innerHTML = avg.toFixed(1);
+                document.getElementById('minValue').innerHTML = min.toFixed(1);
+                document.getElementById('maxValue').innerHTML = max.toFixed(1);
+            }
+        }
+
+        function resetChart() {
+            const targetUserId = currentUserId || getLastActiveUserId();
+            if (targetUserId && userStates[targetUserId]) {
+                userStates[targetUserId].chartData.labels = [];
+                userStates[targetUserId].chartData.values = [];
+
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.update();
+
+                document.getElementById('avgValue').innerHTML = '0';
+                document.getElementById('minValue').innerHTML = '0';
+                document.getElementById('maxValue').innerHTML = '0';
+            }
+        }
+
+        window.onload = function() {
+            connectSocket();
+        };
+    </script>
+</body>
+</html>
