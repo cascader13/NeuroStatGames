@@ -1,3 +1,4 @@
+# [file name]: app.py
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -8,6 +9,7 @@ from collections import defaultdict, deque
 import threading
 from queue import Queue, Empty
 import logging
+import os  # Добавлено для получения PORT из окружения
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -15,7 +17,13 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# Важно: для продакшена используем eventlet
+socketio = SocketIO(app, 
+                   cors_allowed_origins="*", 
+                   async_mode='eventlet',  # Явно указываем eventlet
+                   logger=True,
+                   engineio_logger=True)
 
 # Оптимизированные структуры данных
 user_baselines = {}
@@ -25,7 +33,6 @@ user_last_values = defaultdict(lambda: {'concentration': 50, 'stress': 50, 'rela
 message_queue = Queue()
 BATCH_SIZE = 10
 BATCH_INTERVAL = 0.05  # 50ms
-
 
 def batch_processor():
     """Фоновый процесс для группировки сообщений"""
@@ -59,10 +66,8 @@ def batch_processor():
 
         time.sleep(0.01)
 
-
 # Запускаем фоновый процесс
 threading.Thread(target=batch_processor, daemon=True).start()
-
 
 def normalize_value(value, baseline, default=50):
     """Быстрая нормализация значения"""
@@ -70,11 +75,10 @@ def normalize_value(value, baseline, default=50):
         return default
     return max(0, min(100, (value / baseline) * default))
 
-
 @app.route('/api/sendString', methods=['POST'])
 def send_string():
     try:
-        data = request.get_json(force=True)  # force=True для пропуска проверки MIME типа
+        data = request.get_json(force=True)
         if not data or 'id' not in data or 'text' not in data:
             return jsonify({'success': False, 'error': 'Invalid data'}), 400
 
@@ -156,56 +160,56 @@ def send_string():
         logger.error(f"Error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# Добавляем эндпоинт для массового получения данных
 @app.route('/api/last_values', methods=['GET'])
 def get_last_values():
     """Быстрый доступ к последним значениям всех пользователей"""
     return jsonify(dict(user_last_values))
-
 
 @app.route('/api/user/<user_id>/last', methods=['GET'])
 def get_user_last(user_id):
     """Быстрый доступ к последним значениям конкретного пользователя"""
     return jsonify(user_last_values.get(user_id, {}))
 
-
-# Остальные маршруты остаются без изменений
+# Остальные маршруты
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/concentration')
 def concentration():
     return render_template('dashboard.html')
 
-
 @app.route('/calm_vs_stress')
 def calm_vs_stress():
     return render_template('calm_vs_stress.html')
-
 
 @app.route('/just_relax')
 def just_relax():
     return render_template('just_relax.html')
 
-
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
-
 
 @socketio.on('connect')
 def handle_connect():
     logger.info(f"Client connected: {request.sid}")
 
-
 @socketio.on('disconnect')
 def handle_disconnect():
     logger.info(f"Client disconnected: {request.sid}")
 
-
+# ВАЖНО: Изменено для продакшена на Render.com
 if __name__ == '__main__':
-    logger.info("Server starting on http://0.0.0.0:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)  # debug=False для продакшена
+    # Для локальной разработки
+    port = int(os.environ.get('PORT', 5000))
+    logger.info(f"Server starting on port {port}")
+    socketio.run(app, 
+                host='0.0.0.0', 
+                port=port, 
+                debug=False,
+                allow_unsafe_werkzeug=True)  # Добавлено для локальной разработки
+else:
+    # Для продакшена (когда запускается через gunicorn)
+    # Создаем объект приложения для gunicorn
+    application = app
