@@ -283,7 +283,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-brain"></i> Just Relax - Соревнование в спокойствии</h1>
+            <h1><img src="neurostat.jpg" alt="НейроСтат" style="width: 80px; height: 40px; object-fit: cover;"></i> Just Relax - Соревнование в спокойствии</h1>
             <div class="status-bar">
                 <span id="connectionStatus" class="connection-status status-disconnected">
                     <i class="fas fa-plug"></i> Отключено
@@ -452,7 +452,7 @@
         // Слушаем обновления спокойствия (relax)
         socket.on('relax_update', (data) => {
             console.log('Relax update получен:', data);
-            document.getElementById('dataStatus').innerHTML = '✅ Данные поступают';
+            document.getElementById('dataStatus').innerHTML = 'Данные поступают';
 
             addUserToSelect(data.user_id);
 
@@ -497,17 +497,17 @@
 
                 let winnerMessage = '';
                 if (p1Relax > p2Relax) {
-                    winnerMessage = `🏆 Победитель: Игрок 1 (${playerStates.player1.userId}) с уровнем спокойствия ${p1Relax.toFixed(1)}%!`;
+                    winnerMessage = `Победитель: Игрок 1 (${playerStates.player1.userId}) с уровнем спокойствия ${p1Relax.toFixed(1)}%!`;
                 } else if (p2Relax > p1Relax) {
-                    winnerMessage = `🏆 Победитель: Игрок 2 (${playerStates.player2.userId}) с уровнем спокойствия ${p2Relax.toFixed(1)}%!`;
+                    winnerMessage = `Победитель: Игрок 2 (${playerStates.player2.userId}) с уровнем спокойствия ${p2Relax.toFixed(1)}%!`;
                 } else {
-                    winnerMessage = `🤝 Ничья! Оба игрока показали одинаковый результат ${p1Relax.toFixed(1)}%!`;
+                    winnerMessage = `Ничья! Оба игрока показали одинаковый результат ${p1Relax.toFixed(1)}%!`;
                 }
 
                 document.getElementById('winner').innerText = winnerMessage;
                 document.getElementById('winner').style.display = 'block';
             } else {
-                document.getElementById('winner').innerText = '⚠️ Для определения победителя нужно выбрать обоих игроков!';
+                document.getElementById('winner').innerText = 'Для определения победителя нужно выбрать обоих игроков!';
                 document.getElementById('winner').style.display = 'block';
             }
         }

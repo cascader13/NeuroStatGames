@@ -330,10 +330,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-brain"></i> Neuro Dashboard - Мониторинг концентрации</h1>
+            <h1><img src="neurostat.jpg" alt="НейроСтат" style="width: 80px; height: 40px; object-fit: cover;"></i> Мониторинг концентрации</h1>
             <div class="status-bar">
                 <span id="connectionStatus" class="connection-status status-disconnected">
-                    <i class="fas fa-plug"></i> 🔴 Отключено
+                    <i class="fas fa-plug"></i> Отключено
                 </span>
                 <span id="currentUser" class="user-info">
                     <i class="fas fa-user"></i> Все пользователи
@@ -369,7 +369,7 @@
                     </div>
 
                     <div id="baselineInfo" class="baseline-info">
-                        <p>⏳ Ожидание baseline...</p>
+                        <p>Ожидание baseline...</p>
                     </div>
                 </div>
             </div>
@@ -487,7 +487,7 @@
             if (targetUserId && userStates[targetUserId]) {
                 const state = userStates[targetUserId];
                 updateGauge(state.lastValue || 50);
-                document.getElementById('baselineInfo').innerHTML = state.baselineInfo || '<p>⏳ Ожидание baseline...</p>';
+                document.getElementById('baselineInfo').innerHTML = state.baselineInfo || '<p>Ожидание baseline...</p>';
 
                 chart.data.labels = [...state.chartData.labels];
                 chart.data.datasets[0].data = [...state.chartData.values];
@@ -506,7 +506,7 @@
                 userStates[userId] = {
                     baseline: null,
                     lastValue: 50,
-                    baselineInfo: '<p>⏳ Ожидание baseline...</p>',
+                    baselineInfo: '<p>Ожидание baseline...</p>',
                     chartData: { labels: [], values: [] }
                 };
 
@@ -516,7 +516,7 @@
                 option.text = userId;
                 select.appendChild(option);
 
-                showNotification(`🆕 Новый пользователь: ${userId}`);
+                showNotification(`Новый пользователь: ${userId}`);
             }
             return userStates[userId];
         }
@@ -531,19 +531,19 @@
 
             socket.on('connect', () => {
                 document.getElementById('connectionStatus').className = 'connection-status status-connected';
-                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> 🟢 Подключено';
-                document.getElementById('dataStatus').innerHTML = '⏳ Ожидание данных...';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> Подключено';
+                document.getElementById('dataStatus').innerHTML = 'Ожидание данных...';
             });
 
             socket.on('connect_error', (error) => {
                 console.error('Ошибка подключения:', error);
-                document.getElementById('dataStatus').innerHTML = '❌ Ошибка подключения';
+                document.getElementById('dataStatus').innerHTML = 'Ошибка подключения';
             });
 
             socket.on('disconnect', () => {
                 document.getElementById('connectionStatus').className = 'connection-status status-disconnected';
-                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> 🔴 Отключено';
-                document.getElementById('dataStatus').innerHTML = '⏸ Отключено';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-plug"></i> Отключено';
+                document.getElementById('dataStatus').innerHTML = 'Отключено';
             });
 
             // Слушаем событие baseline_received
@@ -552,8 +552,8 @@
                 const state = getUserState(data.user_id);
                 state.baseline = data.value;
                 state.baselineInfo = `
-                    <p>✅ Baseline: <strong>${data.value.toFixed(2)}</strong></p>
-                    <p>📅 ${new Date(data.timestamp * 1000).toLocaleTimeString()}</p>
+                    <p>Baseline: <strong>${data.value.toFixed(2)}</strong></p>
+                    <p>${new Date(data.timestamp * 1000).toLocaleTimeString()}</p>
                 `;
 
                 if (currentUserId === '' || currentUserId === data.user_id) {
@@ -564,7 +564,7 @@
             // Слушаем событие concentration_update
             socket.on('concentration_update', (data) => {
                 console.log('Концентрация получена:', data);
-                document.getElementById('dataStatus').innerHTML = '✅ Данные поступают';
+                document.getElementById('dataStatus').innerHTML = 'Данные поступают';
 
                 const state = getUserState(data.user_id);
                 state.lastValue = data.normalized_value;
