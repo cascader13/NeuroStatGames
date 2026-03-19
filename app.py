@@ -37,7 +37,7 @@ message_queue = Queue()
 BATCH_SIZE = 10
 BATCH_INTERVAL = 0.05  # 50ms
 
-def batch_processor():
+'''def batch_processor():
     """Фоновый процесс для группировки сообщений"""
     while True:
         messages = []
@@ -67,7 +67,18 @@ def batch_processor():
                         # Для множественных сообщений отправляем как массив
                         socketio.emit(f'{event_type}_batch', event_messages)
 
-        time.sleep(0.01)
+        time.sleep(0.01)'''
+
+# Закомментируйте или измените функцию batch_processor
+def batch_processor():
+    """Фоновый процесс для группировки сообщений"""
+    while True:
+        try:
+            msg = message_queue.get(timeout=0.1)
+            with app.app_context():
+                socketio.emit(msg.pop('event_type'), msg)
+        except Empty:
+            time.sleep(0.01)
 
 # Запускаем фоновый процесс
 threading.Thread(target=batch_processor, daemon=True).start()
